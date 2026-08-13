@@ -890,7 +890,17 @@ require('lazy').setup({
     config = function()
       -- ensure basic parser are installed
       -- See https://github.com/nvim-treesitter/nvim-treesitter/blob/main/SUPPORTED_LANGUAGES.md
-      local parsers = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'dot', 'php', 'phpdoc' }
+      local parsers = {
+        -- editor / docs
+        'bash', 'c', 'diff', 'dot', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'regex', 'vim', 'vimdoc',
+        'gitcommit', 'gitignore',
+        -- backend (Laravel)
+        'php', 'phpdoc', 'blade', 'sql',
+        -- frontend (Nuxt / TS)
+        'javascript', 'typescript', 'tsx', 'vue', 'html', 'css', 'scss',
+        -- config formats
+        'json', 'yaml', 'toml', 'xml',
+      }
       require('nvim-treesitter').install(parsers)
 
       ---@param buf integer
