@@ -11,6 +11,18 @@
 --
 -- Snacks.nvim is intentionally not installed: claudecode.nvim only uses it for
 -- a floating terminal window, which the `none` provider does not need anyway.
+--
+-- Leaving the in-Neovim Claude split (<leader>ac below): terminal mode swallows
+-- the window-navigation keys, so drop to Normal mode first.
+--
+--   <Esc><Esc><C-h>    kickstart's terminal-mode escape (init.lua:220), then
+--                      'move focus to the left window' (init.lua:232)
+--   <C-\><C-n><C-h>    the same thing with Neovim's built-in escape, which
+--                      works even if that mapping is ever removed
+--
+-- Note that <Esc><Esc> is consumed by Neovim and never reaches Claude, so
+-- Claude's own double-Esc (jump back through message history) is unavailable
+-- inside the split. A single Esc still passes through and interrupts.
 
 vim.pack.add { { src = 'https://github.com/coder/claudecode.nvim' } }
 
