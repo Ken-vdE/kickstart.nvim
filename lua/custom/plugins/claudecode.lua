@@ -52,3 +52,59 @@ map('<leader>ax', '<cmd>ClaudeCodeCloseAllDiffs<cr>', 'Close all diffs')
 -- Server control, for when the external session loses the connection.
 map('<leader>aS', '<cmd>ClaudeCodeStatus<cr>', 'Server status')
 map('<leader>aR', '<cmd>ClaudeCodeStop<cr><cmd>ClaudeCodeStart<cr>', 'Restart server')
+
+-- Optional in-Neovim Claude, without changing the configured default.
+--
+-- The provider is resolved from the module-level table at call time, and
+-- `build_config()` only whitelists appearance keys, so a per-call
+-- `{ provider = 'native' }` override is silently dropped. Flipping
+-- `terminal.defaults.provider` around the call is the only way in. It is
+-- restored to 'none' as soon as no managed terminal buffer is left, so the
+-- external `/ide` workflow keeps the no-op provider it expects.
+local DEFAULT_PROVIDER = 'none'
+
+local function with_native(fn)
+  local term = require 'claudecode.terminal'
+  term.defaults.provider = 'native'
+
+  local ok, err = pcall(fn, term)
+
+  -- Keep 'native' while a terminal exists, so toggling it back off still works.
+  if not term.get_active_terminal_bufnr() then
+    term.defaults.provider = DEFAULT_PROVIDER
+  end
+
+  if not ok then
+    error(err)
+  end
+end
+
+-- The spawned process exits (`/quit`, Ctrl-D) -> hand the provider back. The
+-- buffer outlives the job, so match on the closing buffer rather than on
+-- whether a managed terminal buffer still exists.
+vim.api.nvim_create_autocmd('TermClose', {
+  callback = function(ev)
+    local ok, term = pcall(require, 'claudecode.terminal')
+    if ok and ev.buf == term.get_active_terminal_bufnr() then
+      term.defaults.provider = DEFAULT_PROVIDER
+    end
+  end,
+})
+
+map('<leader>ac', function()
+  with_native(function(term)
+    term.simple_toggle { split_side = 'right', split_width_percentage = 0.35 }
+  end)
+end, 'Toggle Claude in a split')
+
+map('<leader>af', function()
+  with_native(function(term)
+    term.focus_toggle { split_side = 'right', split_width_percentage = 0.35 }
+  end)
+end, 'Focus Claude split')
+
+map('<leader>am', function()
+  with_native(function()
+    vim.cmd 'ClaudeCodeSelectModel'
+  end)
+end, 'Open Claude with model')
