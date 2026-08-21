@@ -26,6 +26,11 @@
 
 vim.pack.add { { src = 'https://github.com/coder/claudecode.nvim' } }
 
+-- OpenCode also discovers Claude IDE sockets, but currently renders the
+-- protocol's zero-based LSP positions as human line numbers. Keep the shared
+-- live connection and translate coordinates only for the OpenCode client.
+require('custom.claude_opencode_compat').setup()
+
 require('claudecode').setup {
   terminal = { provider = 'none' },
 }
