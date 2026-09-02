@@ -2,8 +2,11 @@
 --
 -- Sessions are keyed on cwd (plus git branch), stored under
 -- `stdpath('state')/sessions`. Saving happens automatically on a clean exit
--- (`:qa`, `:wqa`); restoring happens automatically only when Neovim is started
--- with no file arguments, so `nvim some/file.lua` is never clobbered.
+-- (`:qa`, `:wqa`). Restoring happens on a bare `nvim` -- so `cd project && nvim`
+-- picks up where you left off, while `nvim some/file.lua` is never clobbered.
+--
+-- Neo-tree is opened on every start and after any session load, with the same
+-- directories unfolded as when you left.
 
 vim.pack.add { { src = 'https://github.com/folke/persistence.nvim' } }
 
@@ -18,29 +21,76 @@ require('persistence').setup {
   branch = true,
 }
 
--- A neo-tree window in a saved session restores as an empty, broken buffer.
--- Close them before the session is written.
+local group = vim.api.nvim_create_augroup('custom-persistence', { clear = true })
+
+local function neotree_state()
+  local ok, manager = pcall(require, 'neo-tree.sources.manager')
+  if not ok then
+    return nil
+  end
+  local got, state = pcall(manager.get_state, 'filesystem')
+  return got and state or nil
+end
+
+-- Which directories are unfolded in the tree. Stashed in an uppercase global so
+-- that `sessionoptions+=globals` writes it into the session file alongside the
+-- buffer list -- no second state file to keep in sync with the session.
+local function save_expanded_dirs()
+  local state = neotree_state()
+  if not (state and state.tree) then
+    return
+  end
+  local dirs = require('neo-tree.ui.renderer').get_expanded_nodes(state.tree)
+  vim.g.NeotreeExpanded = table.concat(dirs, '\n')
+end
+
+local function show_neotree()
+  pcall(vim.cmd, 'Neotree show')
+
+  local saved = vim.g.NeotreeExpanded
+  if type(saved) ~= 'string' or saved == '' then
+    return
+  end
+  local state = neotree_state()
+  if not state then
+    return
+  end
+  -- `force_open_folders` is consumed by the next render, which is how neo-tree
+  -- itself rebuilds a tree's fold state (see its `setup/init.lua`).
+  state.force_open_folders = vim.split(saved, '\n', { plain = true })
+  pcall(require('neo-tree.sources.filesystem').navigate, state)
+end
+
+-- A neo-tree window in a saved session restores as an empty, broken buffer, so
+-- its fold state is recorded and the window closed before the session is written.
 vim.api.nvim_create_autocmd('User', {
   pattern = 'PersistenceSavePre',
-  group = vim.api.nvim_create_augroup('custom-persistence-save', { clear = true }),
+  group = group,
   callback = function()
-    if package.loaded['neo-tree'] then
-      pcall(vim.cmd, 'Neotree close')
-    end
+    save_expanded_dirs()
+    pcall(vim.cmd, 'Neotree close')
   end,
 })
 
--- Auto-restore, but only for a bare `nvim` in a directory that has a session.
+-- Loading a session sources it, rebuilding the window layout from scratch --
+-- which drops the neo-tree window that the session deliberately doesn't hold.
+vim.api.nvim_create_autocmd('User', {
+  pattern = 'PersistenceLoadPost',
+  group = group,
+  callback = show_neotree,
+})
+
 -- `nested = true` is required, otherwise FileType/LSP/treesitter never fire on
 -- the restored buffers.
 vim.api.nvim_create_autocmd('VimEnter', {
   nested = true,
-  group = vim.api.nvim_create_augroup('custom-persistence-restore', { clear = true }),
+  group = group,
   callback = function()
-    if vim.fn.argc() > 0 or vim.o.filetype == 'gitcommit' then
-      return
+    if vim.fn.argc() == 0 then
+      -- No-op when this cwd has no session yet; neo-tree still opens below.
+      require('persistence').load()
     end
-    require('persistence').load()
+    show_neotree()
   end,
 })
 
