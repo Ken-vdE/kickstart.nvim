@@ -520,7 +520,15 @@ do
   local builtin = require 'telescope.builtin'
   vim.keymap.set('n', '<leader>sh', builtin.help_tags, { desc = '[S]earch [H]elp' })
   vim.keymap.set('n', '<leader>sk', builtin.keymaps, { desc = '[S]earch [K]eymaps' })
-  vim.keymap.set('n', '<leader>sf', function() builtin.find_files { hidden = true, no_ignore = true } end, { desc = '[S]earch [F]iles' })
+  vim.keymap.set('n', '<leader>sf', function()
+    builtin.find_files {
+      -- Include dotfiles and gitignored files. `--no-ignore-vcs` bypasses only
+      -- .gitignore; fd still honours ~/.config/fd/ignore (global excludes such as
+      -- .git, node_modules, /vendor) and a per-project .fdignore, which can add
+      -- patterns or re-include with `!pattern`.
+      find_command = { 'fd', '--type', 'f', '--color', 'never', '--hidden', '--no-ignore-vcs' },
+    }
+  end, { desc = '[S]earch [F]iles' })
   vim.keymap.set('n', '<leader>ss', builtin.builtin, { desc = '[S]earch [S]elect Telescope' })
   vim.keymap.set({ 'n', 'v' }, '<leader>sw', builtin.grep_string, { desc = '[S]earch current [W]ord' })
   vim.keymap.set('n', '<leader>sg', builtin.live_grep, { desc = '[S]earch by [G]rep' })
