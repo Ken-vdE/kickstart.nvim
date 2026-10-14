@@ -1,6 +1,10 @@
 -- Dependency-free Codex `/ide` bridge. An external `codex` session can run
 -- `/ide` to read this Neovim instance's active file, selection, and open tabs.
 
+-- Skip the whole bridge (IPC socket, commands, keymaps, statusline) when the
+-- Codex CLI is not installed.
+if vim.fn.executable 'codex' == 0 then return end
+
 local uv = vim.uv
 local codex_home = vim.env.CODEX_HOME or vim.fn.expand '~/.codex'
 local ipc_dir, socket_path = codex_home .. '/ipc', codex_home .. '/ipc/ipc.sock'
